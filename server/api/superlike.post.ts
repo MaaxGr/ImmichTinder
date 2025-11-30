@@ -3,7 +3,7 @@ import { $fetch } from 'ofetch'
 
 const IMMICH_URL = process.env.IMMICH_URL!
 const IMMICH_TOKEN = process.env.IMMICH_TOKEN!
-const IMMICH_SUPERLIKE_ALBUM_ID = process.env.IMMICH_SUPERLIKE_ALBUM_ID
+const IMMICH_ALBUM_ID = process.env.IMMICH_ALBUM_ID
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ id?: string }>(event)
@@ -12,12 +12,23 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, message: 'Missing id in request body' })
   }
-  if (!IMMICH_SUPERLIKE_ALBUM_ID) {
-    throw createError({ statusCode: 500, message: 'Server misconfigured: IMMICH_SUPERLIKE_ALBUM_ID is missing' })
+  if (!IMMICH_ALBUM_ID) {
+    throw createError({ statusCode: 500, message: 'Server misconfigured: IMMICH_ALBUM_ID is missing' })
   }
 
   try {
-    await $fetch(`${IMMICH_URL}/api/albums/${encodeURIComponent(IMMICH_SUPERLIKE_ALBUM_ID)}/assets`, {
+    await $fetch(`${IMMICH_URL}/api/assets/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: {
+        'x-api-key': IMMICH_TOKEN,
+        'content-type': 'application/json',
+      },
+      body: {
+        isFavorite: true,
+      },
+    })
+
+    await $fetch(`${IMMICH_URL}/api/albums/${encodeURIComponent(IMMICH_ALBUM_ID)}/assets`, {
       method: 'PUT',
       headers: {
         'x-api-key': IMMICH_TOKEN,

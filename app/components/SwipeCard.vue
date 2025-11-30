@@ -25,6 +25,7 @@ const emit = defineEmits<{
   (e: 'like'): void
   (e: 'dislike'): void
   (e: 'superlike'): void
+  (e: 'options'): void
   (e: 'cancel'): void
 }>()
 
@@ -42,7 +43,7 @@ const state = reactive({
 
 const ROTATE_FACTOR = 0.05 // rotation per px of dx
 const THRESHOLD_X = 100 // px horizontal to trigger
-const THRESHOLD_Y = 100 // px upward to trigger superlike
+const THRESHOLD_Y = 100 // px vertical to trigger
 
 const showLike = computed(() => state.dx > 40)
 const showDislike = computed(() => state.dx < -40)
@@ -90,12 +91,21 @@ function onPointerUp() {
   const finalDy = state.dy
   state.dragging = false
 
-  // Prioritize vertical superlike if vertical movement dominates
+  // Vertical gestures
   const verticalDominant = Math.abs(finalDy) > Math.abs(finalDx)
-  if (verticalDominant && finalDy < -THRESHOLD_Y) {
-    void flingUp()
-    cleanup()
-    return
+  if (verticalDominant) {
+    if (finalDy < -THRESHOLD_Y) {
+      void flingUp()
+      cleanup()
+      return
+    }
+    if (finalDy > THRESHOLD_Y) {
+      // Open options menu (no fling)
+      resetPosition()
+      emit('options')
+      cleanup()
+      return
+    }
   }
 
   if (finalDx > THRESHOLD_X) {

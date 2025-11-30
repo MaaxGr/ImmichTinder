@@ -14,20 +14,27 @@
 
       <div v-else-if="!currentId && initialLoading" class="state loading">Loading...</div>
 
-      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @cancel="onCancel">
+      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @options="onOptions" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
         <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
           <div class="line location" v-if="locationWithFlag">{{ locationWithFlag }}</div>
         </div>
       </SwipeCard>
+
+      <div v-if="showOptions" class="modal-backdrop" @click.self="closeOptions">
+        <div class="modal">
+          <h3>Image options</h3>
+          <p class="id">ID: <code>{{ currentId }}</code></p>
+          <div class="actions">
+            <button class="btn danger" :disabled="deleting" @click="deleteCurrent">{{ deleting ? 'Deleting…' : 'Delete image' }}</button>
+            <button class="btn" :disabled="deleting" @click="closeOptions">Close</button>
+          </div>
+          <p v-if="deleteError" class="error">{{ deleteError }}</p>
+        </div>
+      </div>
     </div>
 
-    <div class="controls">
-      <button class="btn dislike" :disabled="!currentId" @click="triggerDislike">Nope</button>
-      <button class="btn superlike" :disabled="!currentId" @click="triggerSuperlike">Superlike</button>
-      <button class="btn like" :disabled="!currentId" @click="triggerLike">Like</button>
-    </div>
   </div>
 </template>
 
@@ -41,6 +48,11 @@ const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
 const error = ref<string | null>(null)
+
+// Options modal state
+const showOptions = ref(false)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
 
 // Metadata for display
 const takenAt = ref<string | null>(null)
@@ -296,6 +308,30 @@ async function triggerSuperlike() {
   await commit('superlike')
 }
 
+function onOptions() {
+  deleteError.value = null
+  showOptions.value = true
+}
+function closeOptions() {
+  if (deleting.value) return
+  showOptions.value = false
+}
+async function deleteCurrent() {
+  if (!currentId.value) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await $fetch('/api/delete', { method: 'POST', body: { id: currentId.value } })
+    // After deletion, move to next card
+    showOptions.value = false
+    await showNextCard()
+  } catch (e: any) {
+    deleteError.value = e?.data?.message || e?.message || 'Failed to delete image'
+  } finally {
+    deleting.value = false
+  }
+}
+
 function onCancel() {
   // no-op for now
 }
@@ -321,7 +357,7 @@ onMounted(() => {
   height: 100dvh; /* lock viewport height */
   overflow: hidden; /* prevent page scroll */
   display: grid;
-  grid-template-rows: 90px 1fr 72px; /* fixed header/footer heights */
+  grid-template-rows: 90px 1fr; /* fixed header height; controls removed */
 }
 .header {
   display: flex;
@@ -414,6 +450,44 @@ onMounted(() => {
   font-size: 14px;
 }
 .state.error button { margin-top: 8px; }
+
+/* Options modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+.modal {
+  background: #1f2937; /* gray-800 */
+  color: #fff;
+  width: min(92vw, 520px);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.modal h3 {
+  margin: 0 0 8px;
+}
+.modal .id {
+  word-break: break-all;
+  opacity: 0.9;
+}
+.modal .actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+.btn.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.modal .error {
+  color: #fca5a5;
+  margin-top: 10px;
+}
 
 /* Landscape optimizations */
 @media (orientation: landscape) {
