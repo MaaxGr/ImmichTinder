@@ -12,10 +12,37 @@ export default defineEventHandler(async () => {
         }
     })
 
-    console.log(asset)
+    const a = Array.isArray(asset) ? asset[0] : asset
+    const id = a?.id
+
+    const asset2 = await $fetch(`${IMMICH_URL}/api/assets/${id}`, {
+        method: "GET",
+        headers: {
+            "x-api-key": IMMICH_TOKEN
+        }
+    })
+
+
+
+    const exif = asset2.exifInfo || {}
+
+    const takenAt = exif.dateTimeOriginal || a?.localDateTime || null
+
+    // Compose a human-friendly location string if available
+    const parts = [exif.city, exif.state, exif.country].filter(Boolean)
+    const locationText = parts.length ? parts.join(", ") : null
 
     return {
-        id: asset[0].id,
-        localDateTime: asset[0].localDateTime
+        id: a?.id,
+        localDateTime: a?.localDateTime || null,
+        takenAt,
+        location: {
+            text: locationText,
+            city: exif.city || null,
+            state: exif.state || null,
+            country: exif.country || null,
+            latitude: exif.latitude ?? null,
+            longitude: exif.longitude ?? null,
+        }
     }
 })

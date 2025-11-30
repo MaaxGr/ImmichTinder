@@ -16,6 +16,10 @@
 
       <SwipeCard v-else class="card" :style="cardAspectStyle" @like="onLike" @dislike="onDislike" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
+        <div class="meta" v-if="formattedTakenAt || locationText">
+          <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
+          <div class="line location" v-if="locationText">{{ locationText }}</div>
+        </div>
       </SwipeCard>
     </div>
 
@@ -34,6 +38,39 @@ const currentId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+// Metadata for display
+const takenAt = ref<string | null>(null)
+const location = ref<{
+  text: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  latitude: number | null
+  longitude: number | null
+} | null>(null)
+
+const formattedTakenAt = computed(() => {
+  if (!takenAt.value) return ''
+  const d = new Date(takenAt.value)
+  if (isNaN(d.getTime())) return ''
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    } as Intl.DateTimeFormatOptions).format(d)
+  } catch {
+    return d.toLocaleString()
+  }
+})
+
+const locationText = computed(() => {
+  const loc = location.value
+  if (!loc) return ''
+  if (loc.text) return loc.text
+  const parts = [loc.city, loc.state, loc.country].filter(Boolean)
+  return parts.join(', ')
+})
+
 const natural = ref<{ w: number; h: number } | null>(null)
 const cardAspectStyle = computed(() => {
   const n = natural.value
@@ -51,9 +88,25 @@ async function nextRandom() {
   error.value = null
   // Reset aspect while fetching next image so the card doesn't keep previous ratio
   natural.value = null
+  takenAt.value = null
+  location.value = null
   try {
-    const res = await $fetch<{ id: string }>(`/api/random`)
+    const res = await $fetch<{
+      id: string
+      localDateTime?: string | null
+      takenAt?: string | null
+      location?: {
+        text: string | null
+        city: string | null
+        state: string | null
+        country: string | null
+        latitude: number | null
+        longitude: number | null
+      } | null
+    }>(`/api/random`)
     currentId.value = res.id
+    takenAt.value = res.takenAt || res.localDateTime || null
+    location.value = res.location || null
   } catch (e: any) {
     error.value = e?.message || 'Failed to load random image'
     currentId.value = null
@@ -153,6 +206,23 @@ onMounted(() => {
   object-fit: contain; /* preserve original aspect ratio */
   user-select: none;
 }
+
+/* Metadata overlay inside the card */
+.meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.3;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none; /* do not block swipe */
+}
+.meta .line { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.meta .time { font-weight: 700; }
+.meta .location { opacity: 0.95; }
 
 .controls {
   display: flex;
