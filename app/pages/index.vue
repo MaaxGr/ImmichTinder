@@ -14,7 +14,7 @@
 
       <div v-else-if="!imageUrl && loading" class="state loading">Loading...</div>
 
-      <SwipeCard v-else class="card" :style="cardAspectStyle" @like="onLike" @dislike="onDislike" @cancel="onCancel">
+      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
         <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
@@ -24,8 +24,8 @@
     </div>
 
     <div class="controls">
-      <button class="btn dislike" :disabled="!currentId || loading" @click="onDislike">Nope</button>
-      <button class="btn like" :disabled="!currentId || loading" @click="onLike">Like</button>
+      <button class="btn dislike" :disabled="!currentId || loading" @click="triggerDislike">Nope</button>
+      <button class="btn like" :disabled="!currentId || loading" @click="triggerLike">Like</button>
     </div>
   </div>
 </template>
@@ -33,6 +33,10 @@
 <script setup lang="ts">
 import SwipeCard from '~/components/SwipeCard.vue'
 import { ref, computed, onMounted } from 'vue'
+
+// Exposed methods from SwipeCard
+type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Promise<void> }
+const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
 const loading = ref(false)
@@ -192,12 +196,24 @@ async function send(action: 'like' | 'dislike') {
   }
 }
 
-function onLike() {
+// Called by SwipeCard after its fling completes
+function onLikeCommit() {
   void send('like')
 }
-function onDislike() {
+function onDislikeCommit() {
   void send('dislike')
 }
+
+// Trigger programmatic fling animations from buttons
+async function triggerLike() {
+  if (!swipe.value) return
+  await swipe.value.flingRight()
+}
+async function triggerDislike() {
+  if (!swipe.value) return
+  await swipe.value.flingLeft()
+}
+
 function onCancel() {
   // no-op for now
 }
@@ -247,7 +263,8 @@ onMounted(() => {
   box-sizing: border-box;
 }
 .card {
-  width: min(98vw, 1100px);
+  /* Use container width to avoid overflow with parent padding */
+  width: min(100%, 1100px);
   max-width: 100%;
   max-height: 100%;
   background: #111;
@@ -308,7 +325,8 @@ onMounted(() => {
 @media (orientation: landscape) {
   /* Keep fixed tracks; just tweak card sizing and control spacing */
   .card {
-    width: min(90vw, 95vh);
+    /* Use container-relative sizing to avoid horizontal overflow with padding */
+    width: min(100%, 95vh);
     max-width: 100%;
     max-height: 100%;
   }

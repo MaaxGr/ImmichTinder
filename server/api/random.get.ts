@@ -8,7 +8,8 @@ export default defineEventHandler(async () => {
             "x-api-key": IMMICH_TOKEN
         },
         body: {
-            size: 1
+            size: 1,
+            type: 'IMAGE'
         }
     })
 
