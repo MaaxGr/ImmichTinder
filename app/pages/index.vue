@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="header">
-      <h1>ImmichSwipe</h1>
+      <img class="logo" src="/logo.png" alt="ImmichSwipe" draggable="false" />
       <div class="spacer" />
       <button class="refresh" @click="nextRandom" :disabled="loading">↻</button>
     </div>
@@ -16,9 +16,9 @@
 
       <SwipeCard v-else class="card" :style="cardAspectStyle" @like="onLike" @dislike="onDislike" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
-        <div class="meta" v-if="formattedTakenAt || locationText">
+        <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
-          <div class="line location" v-if="locationText">{{ locationText }}</div>
+          <div class="line location" v-if="locationWithFlag">{{ locationWithFlag }}</div>
         </div>
       </SwipeCard>
     </div>
@@ -69,6 +69,59 @@ const locationText = computed(() => {
   if (loc.text) return loc.text
   const parts = [loc.city, loc.state, loc.country].filter(Boolean)
   return parts.join(', ')
+})
+
+function toFlagEmojiFromCountry(countryRaw?: string | null): string {
+  if (!countryRaw) return ''
+  const map: Record<string, string> = {
+    'UNITED STATES': 'US', 'USA': 'US', 'US': 'US', 'U.S.A.': 'US',
+    'UNITED KINGDOM': 'GB', 'UK': 'GB', 'ENGLAND': 'GB', 'SCOTLAND': 'GB', 'WALES': 'GB', 'GB': 'GB',
+    'GERMANY': 'DE', 'DEUTSCHLAND': 'DE', 'DE': 'DE',
+    'FRANCE': 'FR', 'FR': 'FR',
+    'SPAIN': 'ES', 'ESPAÑA': 'ES', 'ES': 'ES',
+    'ITALY': 'IT', 'ITALIA': 'IT', 'IT': 'IT',
+    'AUSTRIA': 'AT', 'ÖSTERREICH': 'AT', 'AT': 'AT',
+    'SWITZERLAND': 'CH', 'SCHWEIZ': 'CH', 'SUISSE': 'CH', 'SVIZZERA': 'CH', 'CH': 'CH',
+    'PORTUGAL': 'PT', 'PT': 'PT',
+    'NETHERLANDS': 'NL', 'HOLLAND': 'NL', 'NL': 'NL',
+    'POLAND': 'PL', 'POLSKA': 'PL', 'PL': 'PL',
+    'CZECHIA': 'CZ', 'CZECH REPUBLIC': 'CZ', 'CZ': 'CZ',
+    'BELGIUM': 'BE', 'BE': 'BE',
+    'SWEDEN': 'SE', 'SE': 'SE',
+    'NORWAY': 'NO', 'NO': 'NO',
+    'DENMARK': 'DK', 'DK': 'DK',
+    'FINLAND': 'FI', 'FI': 'FI',
+    'IRELAND': 'IE', 'IE': 'IE',
+    'CANADA': 'CA', 'CA': 'CA',
+    'AUSTRALIA': 'AU', 'AU': 'AU',
+    'NEW ZEALAND': 'NZ', 'NZ': 'NZ',
+    'JAPAN': 'JP', 'JP': 'JP',
+    'CHINA': 'CN', 'CN': 'CN',
+    'INDIA': 'IN', 'IN': 'IN'
+  }
+  const key = countryRaw.trim().toUpperCase()
+  let code = map[key]
+  if (!code) {
+    // If already looks like a 2-letter alpha code
+    if (/^[A-Z]{2}$/.test(key)) code = key
+  }
+  if (!code) return ''
+  return isoToFlagEmoji(code)
+}
+
+function isoToFlagEmoji(code: string): string {
+  if (!/^[A-Z]{2}$/.test(code)) return ''
+  const base = 0x1F1E6
+  const chars = code.split('').map(c => String.fromCodePoint(base + (c.charCodeAt(0) - 65)))
+  return chars.join('')
+}
+
+const locationWithFlag = computed(() => {
+  const text = locationText.value
+  const flag = toFlagEmojiFromCountry(location.value?.country || null)
+  if (flag && text) return `${flag} ${text}`
+  if (text) return text
+  return ''
 })
 
 const natural = ref<{ w: number; h: number } | null>(null)
@@ -167,15 +220,16 @@ onMounted(() => {
   gap: 12px;
   padding: 0 16px; /* internal spacing so it doesn't affect layout height */
 }
-.header h1 {
-  font-size: 20px;
-  margin: 0;
+.header .logo {
+  height: 32px; /* fit nicely within 56px header */
+  width: auto;
+  display: block;
 }
 .header .spacer {
   flex: 1;
 }
 .header .refresh {
-  font-size: 18px;
+  font-size: 20px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -213,10 +267,10 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   color: #fff;
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 14px;
+  line-height: 1.35;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.7) 100%);
   pointer-events: none; /* do not block swipe */
 }
@@ -233,10 +287,11 @@ onMounted(() => {
   box-sizing: border-box;
 }
 .btn {
-  padding: 10px 18px;
+  padding: 12px 20px;
   border-radius: 999px;
   border: none;
   font-weight: 700;
+  font-size: 16px;
   cursor: pointer;
 }
 .btn.dislike { background: #fee2e2; color: #991b1b; }
@@ -244,6 +299,7 @@ onMounted(() => {
 
 .state.loading, .state.error {
   color: #777;
+  font-size: 14px;
 }
 .state.error button { margin-top: 8px; }
 

@@ -122,9 +122,10 @@ onUnmounted(() => cleanup())
 .badge {
   position: absolute;
   top: 12px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-weight: 700;
+  font-size: 14px;
   letter-spacing: 1px;
   color: white;
   backdrop-filter: blur(2px);

@@ -16,6 +16,9 @@ html, body {
   padding: 0;
   overflow: hidden; /* prevent any page-level scrollbars */
   overscroll-behavior: none; /* avoid rubber band scroll on mobile */
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Helpful default */
