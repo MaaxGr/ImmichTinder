@@ -3,6 +3,7 @@ import { $fetch } from 'ofetch'
 
 const IMMICH_URL = process.env.IMMICH_URL!
 const IMMICH_TOKEN = process.env.IMMICH_TOKEN!
+const IMMICH_ALBUM_ID = process.env.IMMICH_ALBUM_ID
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ id?: string }>(event)
@@ -11,28 +12,29 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, message: 'Missing id in request body' })
   }
+  if (!IMMICH_ALBUM_ID) {
+    throw createError({ statusCode: 500, message: 'Server misconfigured: IMMICH_ALBUM_ID is missing' })
+  }
 
-  /*
   try {
-    await $fetch(`${IMMICH_URL}/api/assets/${encodeURIComponent(id)}/favorite`, {
-      method: 'POST',
+    await $fetch(`${IMMICH_URL}/api/albums/${encodeURIComponent(IMMICH_ALBUM_ID)}/assets`, {
+      method: 'PUT',
       headers: {
         'x-api-key': IMMICH_TOKEN,
         'content-type': 'application/json',
       },
       body: {
-        isFavorite: true,
+        ids: [id],
       },
     })
   } catch (err: any) {
+    console.log(err)
     // Normalize error
     throw createError({
       statusCode: err?.statusCode || 502,
-      message: 'Failed to like image',
+      message: 'Failed to add asset to album',
     })
   }
-
-   */
 
   return { success: true }
 })
