@@ -6,6 +6,7 @@
       animating: state.animating,
       liking: state.animating && state.animDir === 'right',
       disliking: state.animating && state.animDir === 'left',
+      superliking: state.animating && state.animDir === 'up',
     }"
     :style="cardStyle"
     @pointerdown="onPointerDown"
@@ -13,6 +14,7 @@
     <slot />
     <div class="badge like" :class="{ pop: showLike || (state.animating && state.animDir==='right') }" v-if="showLike || (state.animating && state.animDir==='right')">LIKE</div>
     <div class="badge dislike" :class="{ pop: showDislike || (state.animating && state.animDir==='left') }" v-if="showDislike || (state.animating && state.animDir==='left')">NOPE</div>
+    <div class="badge superlike" :class="{ pop: showSuperlike || (state.animating && state.animDir==='up') }" v-if="showSuperlike || (state.animating && state.animDir==='up')">SUPERLIKE</div>
   </div>
 </template>
 
@@ -22,6 +24,7 @@ import { computed, onUnmounted, reactive, ref } from 'vue'
 const emit = defineEmits<{
   (e: 'like'): void
   (e: 'dislike'): void
+  (e: 'superlike'): void
   (e: 'cancel'): void
 }>()
 
@@ -30,7 +33,7 @@ const card = ref<HTMLElement | null>(null)
 const state = reactive({
   dragging: false,
   animating: false,
-  animDir: null as null | 'left' | 'right',
+  animDir: null as null | 'left' | 'right' | 'up',
   startX: 0,
   startY: 0,
   dx: 0,
@@ -38,10 +41,12 @@ const state = reactive({
 })
 
 const ROTATE_FACTOR = 0.05 // rotation per px of dx
-const THRESHOLD = 100 // px horizontal to trigger
+const THRESHOLD_X = 100 // px horizontal to trigger
+const THRESHOLD_Y = 100 // px upward to trigger superlike
 
 const showLike = computed(() => state.dx > 40)
 const showDislike = computed(() => state.dx < -40)
+const showSuperlike = computed(() => state.dy < -60 && Math.abs(state.dy) > Math.abs(state.dx))
 
 const cardStyle = computed(() => {
   const x = state.dx
@@ -82,14 +87,23 @@ function resetPosition() {
 function onPointerUp() {
   if (!state.dragging) return
   const finalDx = state.dx
+  const finalDy = state.dy
   state.dragging = false
 
-  if (finalDx > THRESHOLD) {
+  // Prioritize vertical superlike if vertical movement dominates
+  const verticalDominant = Math.abs(finalDy) > Math.abs(finalDx)
+  if (verticalDominant && finalDy < -THRESHOLD_Y) {
+    void flingUp()
+    cleanup()
+    return
+  }
+
+  if (finalDx > THRESHOLD_X) {
     void flingRight()
     cleanup()
     return
   }
-  if (finalDx < -THRESHOLD) {
+  if (finalDx < -THRESHOLD_X) {
     void flingLeft()
     cleanup()
     return
@@ -114,6 +128,17 @@ async function fling(dir: 'left' | 'right') {
   else emit('dislike')
 }
 
+async function flingUp() {
+  if (state.animating) return
+  state.animating = true
+  state.animDir = 'up'
+  state.dx = 0
+  state.dy = -window.innerHeight
+  await new Promise(resolve => setTimeout(resolve, 300))
+  resetPosition()
+  emit('superlike')
+}
+
 async function flingRight() { await fling('right') }
 async function flingLeft() { await fling('left') }
 
@@ -124,7 +149,7 @@ function cleanup() {
 
 onUnmounted(() => cleanup())
 
-defineExpose({ flingRight, flingLeft })
+defineExpose({ flingRight, flingLeft, flingUp })
 </script>
 
 <style scoped>
@@ -141,7 +166,10 @@ defineExpose({ flingRight, flingLeft })
 .swipe-card.disliking {
   box-shadow: 0 10px 30px rgba(239,68,68,0.35);
 }
-/* Bigger, bolder, more visible LIKE/NOPE stamps */
+.swipe-card.superliking {
+  box-shadow: 0 10px 30px rgba(59,130,246,0.35); /* blue-500 */
+}
+/* Bigger, bolder, more visible LIKE/NOPE/SUPERLIKE stamps */
 .badge {
   position: absolute;
   top: 50%;
@@ -174,6 +202,13 @@ defineExpose({ flingRight, flingLeft })
   border-color: rgba(239,68,68,0.95);
   box-shadow: 0 0 0 4px rgba(239,68,68,0.18), 0 6px 22px rgba(239,68,68,0.25);
   --rot: 12deg;
+}
+.badge.superlike {
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg) scale(0.9);
+  color: #3B82F6; /* blue-500 */
+  border-color: rgba(59,130,246,0.95);
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.18), 0 6px 22px rgba(59,130,246,0.25);
 }
 .badge.pop {
   animation: pop 250ms ease-out both;

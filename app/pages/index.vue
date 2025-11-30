@@ -14,7 +14,7 @@
 
       <div v-else-if="!currentId && initialLoading" class="state loading">Loading...</div>
 
-      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @cancel="onCancel">
+      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
         <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
@@ -25,6 +25,7 @@
 
     <div class="controls">
       <button class="btn dislike" :disabled="!currentId" @click="triggerDislike">Nope</button>
+      <button class="btn superlike" :disabled="!currentId" @click="triggerSuperlike">Superlike</button>
       <button class="btn like" :disabled="!currentId" @click="triggerLike">Like</button>
     </div>
   </div>
@@ -35,7 +36,7 @@ import SwipeCard from '~/components/SwipeCard.vue'
 import { ref, computed, onMounted } from 'vue'
 
 // Exposed methods from SwipeCard
-type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Promise<void> }
+type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Promise<void>; flingUp: () => Promise<void> }
 const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
@@ -257,7 +258,7 @@ function onImgLoad(e: Event) {
   }
 }
 
-async function commit(action: 'like' | 'dislike') {
+async function commit(action: 'like' | 'dislike' | 'superlike') {
   const prevId = currentId.value
   // Swap immediately for snappy UX
   showNextCard()
@@ -277,6 +278,9 @@ function onLikeCommit() {
 function onDislikeCommit() {
   void commit('dislike')
 }
+function onSuperlikeCommit() {
+  void commit('superlike')
+}
 
 // Trigger programmatic fling animations from buttons
 async function triggerLike() {
@@ -286,6 +290,10 @@ async function triggerLike() {
 async function triggerDislike() {
   if (!swipe.value) return
   await swipe.value.flingLeft()
+}
+async function triggerSuperlike() {
+  // No dedicated up-swipe animation; commit immediately
+  await commit('superlike')
 }
 
 function onCancel() {
@@ -399,6 +407,7 @@ onMounted(() => {
 }
 .btn.dislike { background: #fee2e2; color: #991b1b; }
 .btn.like { background: #d1fae5; color: #065f46; }
+.btn.superlike { background: #dbeafe; color: #1e3a8a; }
 
 .state.loading, .state.error {
   color: #777;

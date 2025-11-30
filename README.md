@@ -19,6 +19,8 @@ Create a `.env` file at the project root with the following variables:
 ```
 IMMICH_URL=https://your-immich.example.com
 IMMICH_TOKEN=your_immich_api_key
+IMMICH_ALBUM_ID=<album_id_for_likes>
+IMMICH_SUPERLIKE_ALBUM_ID=<album_id_for_superlikes>
 ```
 
 Notes:
@@ -84,9 +86,15 @@ These routes are implemented under `server/api` and run only on the server side.
   - Streams the original image bytes for the given asset ID.
   - Response headers include `Content-Type: image/jpeg` and an inline `Content-Disposition`.
 
-- POST `/api/like` and POST `/api/dislike`
-  - Accept a JSON body like `{ "id": "ASSET_ID" }`.
-  - Currently mocked to return `{ success: true }`. The Immich calls are present in comments for future enabling.
+- POST `/api/like`
+  - Adds the asset to your configured Immich album (see `IMMICH_ALBUM_ID`).
+  - Body: `{ "id": "ASSET_ID" }`
+- POST `/api/dislike`
+  - Currently a no-op placeholder that just validates the payload and returns `{ success: true }`.
+  - Body: `{ "id": "ASSET_ID" }`
+- POST `/api/superlike`
+  - Adds the asset to your configured Immich Superlike album (see `IMMICH_SUPERLIKE_ALBUM_ID`).
+  - Body: `{ "id": "ASSET_ID" }`
 
 ## How it works (high level)
 
