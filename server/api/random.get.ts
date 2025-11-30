@@ -1,3 +1,5 @@
+import { assert } from "@vue/compiler-core"
+
 const IMMICH_URL = process.env.IMMICH_URL
 const IMMICH_TOKEN = process.env.IMMICH_TOKEN
 
@@ -21,7 +23,10 @@ export default defineEventHandler(async () => {
         headers: {
             "x-api-key": IMMICH_TOKEN
         }
-    })
+    });
+
+    console.log('Load asset details:')
+    console.log(asset2)
 
 
 

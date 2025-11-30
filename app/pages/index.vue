@@ -3,16 +3,16 @@
     <div class="header">
       <img class="logo" src="/logo.png" alt="ImmichSwipe" draggable="false" />
       <div class="spacer" />
-      <button class="refresh" @click="nextRandom" :disabled="loading">↻</button>
+      <button class="refresh" @click="showNextCard" :disabled="initialLoading">↻</button>
     </div>
 
     <div class="card-area">
-      <div v-if="error" class="state error">
+      <div v-if="error && !currentId" class="state error">
         <p>{{ error }}</p>
-        <button @click="nextRandom">Try again</button>
+        <button @click="retryInitial">Try again</button>
       </div>
 
-      <div v-else-if="!imageUrl && loading" class="state loading">Loading...</div>
+      <div v-else-if="!currentId && initialLoading" class="state loading">Loading...</div>
 
       <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
@@ -24,8 +24,8 @@
     </div>
 
     <div class="controls">
-      <button class="btn dislike" :disabled="!currentId || loading" @click="triggerDislike">Nope</button>
-      <button class="btn like" :disabled="!currentId || loading" @click="triggerLike">Like</button>
+      <button class="btn dislike" :disabled="!currentId" @click="triggerDislike">Nope</button>
+      <button class="btn like" :disabled="!currentId" @click="triggerLike">Like</button>
     </div>
   </div>
 </template>
@@ -39,7 +39,6 @@ type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Prom
 const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
-const loading = ref(false)
 const error = ref<string | null>(null)
 
 // Metadata for display
@@ -140,36 +139,115 @@ const cardAspectStyle = computed(() => {
 
 const imageUrl = computed(() => (currentId.value ? `/api/image?id=${encodeURIComponent(currentId.value)}` : ''))
 
-async function nextRandom() {
-  loading.value = true
-  error.value = null
-  // Reset aspect while fetching next image so the card doesn't keep previous ratio
-  natural.value = null
+// Two-card pipeline: keep next card preloaded for instant swap
+const initialLoading = ref(true)
+const preloading = ref(false)
+const nextCard = ref<{
+  id: string
+  takenAt: string | null
+  location: {
+    text: string | null
+    city: string | null
+    state: string | null
+    country: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
+  natural: { w: number; h: number } | null
+} | null>(null)
+
+async function fetchRandomMeta() {
+  return await $fetch<{
+    id: string
+    localDateTime?: string | null
+    takenAt?: string | null
+    location?: {
+      text: string | null
+      city: string | null
+      state: string | null
+      country: string | null
+      latitude: number | null
+      longitude: number | null
+    } | null
+  }>(`/api/random`)
+}
+
+function preloadImage(url: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height })
+    img.onerror = (e) => reject(e)
+    // Try to decode for smoother paint if supported
+    // @ts-ignore
+    if (img.decode) {
+      img.addEventListener('load', async () => {
+        try { /* no-op, already loaded */ } catch {}
+      })
+    }
+    img.src = url
+  })
+}
+
+async function preloadNext() {
+  if (preloading.value) return
+  preloading.value = true
+  try {
+    const res = await fetchRandomMeta()
+    const url = `/api/image?id=${encodeURIComponent(res.id)}`
+    let dims: { w: number; h: number } | null = null
+    try {
+      dims = await preloadImage(url)
+    } catch {
+      // If image decode fails, still proceed; aspect will adjust on load
+      dims = null
+    }
+    nextCard.value = {
+      id: res.id,
+      takenAt: res.takenAt || res.localDateTime || null,
+      location: res.location || null,
+      natural: dims,
+    }
+    error.value = null
+  } catch (e: any) {
+    if (!currentId.value) {
+      error.value = e?.message || 'Failed to load random image'
+    }
+    nextCard.value = null
+  } finally {
+    preloading.value = false
+  }
+}
+
+function applyNextToCurrent() {
+  if (!nextCard.value) return false
+  const n = nextCard.value
+  currentId.value = n.id
+  takenAt.value = n.takenAt
+  location.value = n.location
+  natural.value = n.natural
+  nextCard.value = null
+  return true
+}
+
+async function showNextCard() {
+  // If we already have a preloaded next card, swap immediately
+  let swapped = applyNextToCurrent()
+  if (!swapped) {
+    await preloadNext()
+    swapped = applyNextToCurrent()
+  }
+  // Start preloading the following card immediately
+  void preloadNext()
+}
+
+function retryInitial() {
+  initialLoading.value = true
+  currentId.value = null
   takenAt.value = null
   location.value = null
-  try {
-    const res = await $fetch<{
-      id: string
-      localDateTime?: string | null
-      takenAt?: string | null
-      location?: {
-        text: string | null
-        city: string | null
-        state: string | null
-        country: string | null
-        latitude: number | null
-        longitude: number | null
-      } | null
-    }>(`/api/random`)
-    currentId.value = res.id
-    takenAt.value = res.takenAt || res.localDateTime || null
-    location.value = res.location || null
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to load random image'
-    currentId.value = null
-  } finally {
-    loading.value = false
-  }
+  natural.value = null
+  error.value = null
+  void initPipeline()
 }
 
 function onImgLoad(e: Event) {
@@ -179,29 +257,25 @@ function onImgLoad(e: Event) {
   }
 }
 
-async function send(action: 'like' | 'dislike') {
-  if (!currentId.value) return
-  const id = currentId.value
-  loading.value = true
-  try {
-    await $fetch(`/api/${action}`, {
-      method: 'POST',
-      body: { id },
-    })
-  } catch (e) {
-    // Non-blocking: still load the next image even if like/dislike failed
-    console.error(e)
-  } finally {
-    await nextRandom()
+async function commit(action: 'like' | 'dislike') {
+  const prevId = currentId.value
+  // Swap immediately for snappy UX
+  showNextCard()
+  if (prevId) {
+    try {
+      await $fetch(`/api/${action}`, { method: 'POST', body: { id: prevId } })
+    } catch (e) {
+      console.error(e)
+    }
   }
 }
 
 // Called by SwipeCard after its fling completes
 function onLikeCommit() {
-  void send('like')
+  void commit('like')
 }
 function onDislikeCommit() {
-  void send('dislike')
+  void commit('dislike')
 }
 
 // Trigger programmatic fling animations from buttons
@@ -218,8 +292,19 @@ function onCancel() {
   // no-op for now
 }
 
+async function initPipeline() {
+  try {
+    await preloadNext()
+    applyNextToCurrent()
+    // Kick off preloading of the following card
+    void preloadNext()
+  } finally {
+    initialLoading.value = false
+  }
+}
+
 onMounted(() => {
-  nextRandom()
+  void initPipeline()
 })
 </script>
 

@@ -14,7 +14,9 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    const url = `${IMMICH_URL}/api/assets/${id}/original`
+    const url = `${IMMICH_URL}/api/assets/${id}/thumbnail?size=preview`
+
+    console.log('Fetching image from Immich:', url)
 
     // Fetch image as binary/arrayBuffer
     const image = await $fetch(url, {
