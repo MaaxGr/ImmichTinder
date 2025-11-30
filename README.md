@@ -5,6 +5,10 @@
 
 A tiny Nuxt 4 app that lets you swipe through random photos from your own Immich server — like Tinder, but for your photo library. It fetches random assets from Immich, displays the image with basic EXIF info (date and location when available), and supports like, superlike, and delete actions via server routes.
 
+<p align="center">
+  <img src="demo.png" alt="Demo" width="800" />
+</p>
+
 - Framework: Nuxt 4 (Nitro server)
 - Runtime: Node.js 22+
 - Server routes live under `server/api/*` and proxy Immich with your API key so it never reaches the browser directly.
