@@ -1,6 +1,6 @@
 # Immich Tinder
 
-A tiny Nuxt 4 app that lets you swipe through random photos from your own Immich server — like Tinder, but for your photo library. It fetches random assets from Immich, displays the image with basic EXIF info (date and location when available), and provides like/dislike actions (currently mocked).
+A tiny Nuxt 4 app that lets you swipe through random photos from your own Immich server — like Tinder, but for your photo library. It fetches random assets from Immich, displays the image with basic EXIF info (date and location when available), and supports like, superlike, and delete actions via server routes.
 
 - Framework: Nuxt 4 (Nitro server)
 - Runtime: Node.js 22+
@@ -19,13 +19,13 @@ Create a `.env` file at the project root with the following variables:
 ```
 IMMICH_URL=https://your-immich.example.com
 IMMICH_TOKEN=your_immich_api_key
-IMMICH_ALBUM_ID=<album_id_for_likes>
-IMMICH_SUPERLIKE_ALBUM_ID=<album_id_for_superlikes>
+IMMICH_ALBUM_ID=<album_id_for_likes_and_superlikes>
 ```
 
 Notes:
-- IMMICH_URL is your Immich base URL (no trailing slash).
+- IMMICH_URL is your Immich base URL (no trailing slash). It is also exposed to the client for deep-linking to Immich Web.
 - IMMICH_TOKEN is used as the `x-api-key` when the server calls Immich.
+- IMMICH_ALBUM_ID is the Immich album to which liked and superliked assets will be added.
 
 ## Install
 
@@ -42,6 +42,17 @@ npm run dev
 ```
 
 Then open http://localhost:3000.
+
+## Usage and gestures
+
+- Swipe right: Like (adds to IMMICH_ALBUM_ID)
+- Swipe left: Dislike (no-op server route for now)
+- Swipe up: Superlike (marks as favorite in Immich and adds to IMMICH_ALBUM_ID)
+- Swipe down: Options menu (shows the asset ID and actions)
+  - Open in Immich (opens Immich Web for the asset)
+  - Delete image (deletes the asset from Immich)
+
+A refresh button in the header loads the next card. Bottom controls were removed; gestures drive the experience.
 
 ## Build for production
 
@@ -71,6 +82,7 @@ Run the container (exposes port 3000):
 docker run --rm -p 3000:3000 \
   -e IMMICH_URL=https://your-immich.example.com \
   -e IMMICH_TOKEN=your_immich_api_key \
+  -e IMMICH_ALBUM_ID=your_album_id \
   immich-tinder
 ```
 
@@ -83,30 +95,37 @@ These routes are implemented under `server/api` and run only on the server side.
     - `id`, `localDateTime`, `takenAt`, and `location` (with `text`, `city`, `state`, `country`, `latitude`, `longitude` when available).
 
 - GET `/api/image?id=ASSET_ID`
-  - Streams the original image bytes for the given asset ID.
+  - Streams the preview thumbnail bytes for the given asset ID (Immich `size=preview`).
   - Response headers include `Content-Type: image/jpeg` and an inline `Content-Disposition`.
 
 - POST `/api/like`
   - Adds the asset to your configured Immich album (see `IMMICH_ALBUM_ID`).
   - Body: `{ "id": "ASSET_ID" }`
+
 - POST `/api/dislike`
   - Currently a no-op placeholder that just validates the payload and returns `{ success: true }`.
   - Body: `{ "id": "ASSET_ID" }`
+
 - POST `/api/superlike`
-  - Adds the asset to your configured Immich Superlike album (see `IMMICH_SUPERLIKE_ALBUM_ID`).
+  - Marks the asset as favorite in Immich and adds it to `IMMICH_ALBUM_ID`.
+  - Body: `{ "id": "ASSET_ID" }`
+
+- POST `/api/delete`
+  - Deletes the asset from Immich. Tries single-asset delete first and falls back to bulk delete if needed.
   - Body: `{ "id": "ASSET_ID" }`
 
 ## How it works (high level)
 
 - The client requests a random asset via `/api/random`.
 - When an image needs to be displayed, the client requests `/api/image?id=...` which the server proxies to Immich and returns the binary data.
-- Likes/dislikes are posted to server routes which can be wired to Immich (favorite toggle) when desired.
+- Likes and superlikes are posted to server routes that update Immich (album add, and favorite for superlike). Dislike is currently a no-op. Deletion is performed via `/api/delete`.
 
 ## Troubleshooting
 
-- 400 Missing id in request body: Ensure you send `{ id: "..." }` to `/api/like` or `/api/dislike`.
+- 400 Missing id in request body: Ensure you send `{ id: "..." }` to `/api/like`, `/api/dislike`, `/api/superlike`, or `/api/delete`.
 - 400 Missing ?id parameter: Provide `?id=...` when calling `/api/image`.
-- 404 Image not found: The asset might be missing or the ID is wrong.
+- 404 Image not found (from `/api/image`): The asset might be missing or the ID is wrong.
+- 500 Server misconfigured: IMMICH_ALBUM_ID is missing (for like/superlike). Set it in environment variables.
 - 5xx from Immich: Verify `IMMICH_URL` and `IMMICH_TOKEN`, and that your Immich server is reachable from the app/container.
 
 ## Scripts
@@ -127,7 +146,3 @@ These routes are implemented under `server/api` and run only on the server side.
 - `public/` — Static assets
 - `nuxt.config.ts` — Nuxt configuration
 - `Dockerfile` — Multi‑stage build for production
-
-## License
-
-No license specified. Add one if you intend to share or open‑source this project.
