@@ -1,0 +1,15 @@
+# Ignore local files not needed for Docker builds
+node_modules
+.output
+.nuxt
+.git
+.gitignore
+Dockerfile*
+.dockerignore
+.env
+*.log
+npm-debug.log*
+yarn-error.log*
+.idea
+.vscode
+**/.DS_Store

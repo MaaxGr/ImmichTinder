@@ -212,7 +212,7 @@ onMounted(() => {
   height: 100dvh; /* lock viewport height */
   overflow: hidden; /* prevent page scroll */
   display: grid;
-  grid-template-rows: 56px 1fr 72px; /* fixed header/footer heights */
+  grid-template-rows: 90px 1fr 72px; /* fixed header/footer heights */
 }
 .header {
   display: flex;
@@ -221,7 +221,8 @@ onMounted(() => {
   padding: 0 16px; /* internal spacing so it doesn't affect layout height */
 }
 .header .logo {
-  height: 32px; /* fit nicely within 56px header */
+  height: 70px; /* adjusted per request */
+  max-height: 100%;
   width: auto;
   display: block;
 }
@@ -246,7 +247,7 @@ onMounted(() => {
   box-sizing: border-box;
 }
 .card {
-  width: min(92vw, 520px);
+  width: min(98vw, 1100px);
   max-width: 100%;
   max-height: 100%;
   background: #111;
@@ -307,7 +308,7 @@ onMounted(() => {
 @media (orientation: landscape) {
   /* Keep fixed tracks; just tweak card sizing and control spacing */
   .card {
-    width: min(70vw, 85vh);
+    width: min(90vw, 95vh);
     max-width: 100%;
     max-height: 100%;
   }
