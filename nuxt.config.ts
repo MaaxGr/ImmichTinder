@@ -2,6 +2,12 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  runtimeConfig: {
+    public: {
+      // Expose Immich base URL to client for deep-linking
+      immichUrl: process.env.IMMICH_URL
+    }
+  },
   app: {
     head: {
       link: [

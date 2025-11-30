@@ -27,6 +27,7 @@
           <h3>Image options</h3>
           <p class="id">ID: <code>{{ currentId }}</code></p>
           <div class="actions">
+            <a v-if="immichAssetUrl" class="btn" :href="immichAssetUrl" target="_blank" rel="noopener" @click.stop>Open in Immich</a>
             <button class="btn danger" :disabled="deleting" @click="deleteCurrent">{{ deleting ? 'Deleting…' : 'Delete image' }}</button>
             <button class="btn" :disabled="deleting" @click="closeOptions">Close</button>
           </div>
@@ -151,6 +152,16 @@ const cardAspectStyle = computed(() => {
 })
 
 const imageUrl = computed(() => (currentId.value ? `/api/image?id=${encodeURIComponent(currentId.value)}` : ''))
+
+// Immich deep link for opening the current asset in Immich Web
+const runtime = useRuntimeConfig()
+const immichAssetUrl = computed(() => {
+  const base = (runtime as any)?.public?.immichUrl as string | undefined
+  const id = currentId.value
+  if (!base || !id) return ''
+  const clean = base.endsWith('/') ? base.slice(0, -1) : base
+  return `${clean}/photos/${encodeURIComponent(id)}`
+})
 
 // Two-card pipeline: keep next card preloaded for instant swap
 const initialLoading = ref(true)
