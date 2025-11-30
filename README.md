@@ -5,6 +5,8 @@
 
 A tiny Nuxt 4 app that lets you swipe through random photos from your own Immich server — like Tinder, but for your photo library. It fetches random assets from Immich, displays the image with basic EXIF info (date and location when available), and supports like, superlike, and delete actions via server routes.
 
+> ⚠️ Security notice: This app has no built-in authentication. All server endpoints are unauthenticated. You must protect it with your own authentication layer (e.g., reverse proxy with Basic Auth or OAuth/OIDC, IP allow-listing, or a VPN). Do not expose it directly to the public internet.
+
 <p align="center">
   <img src="demo.png" alt="Demo" width="400" />
 </p>
@@ -143,8 +145,10 @@ These routes are implemented under `server/api` and run only on the server side.
 
 ## Security
 
+- Bring your own authentication. This app’s server endpoints do not include any authentication or authorization. If you expose it beyond your trusted network, you must protect it yourself (e.g., via a reverse proxy with Basic Auth, OAuth/OIDC, IP allow‑listing, or a VPN). Examples: Nginx/Traefik/Caddy with Basic Auth, oauth2-proxy, Cloudflare Access, Tailscale/Gateway, etc.
 - Your Immich API key is used only on the server (Nitro) side. Do not expose it in client code.
 - In Docker, pass the env vars at runtime (see command above). Avoid baking secrets into images.
+- Recommendation: run this behind an auth‑enabled reverse proxy and do not expose it directly to the public internet unless you fully understand the risks.
 
 ## Project structure (selected)
 
