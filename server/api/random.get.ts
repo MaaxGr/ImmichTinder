@@ -16,5 +16,6 @@ export default defineEventHandler(async () => {
 
     return {
         id: asset[0].id,
+        localDateTime: asset[0].localDateTime
     }
 })

@@ -14,8 +14,8 @@
 
       <div v-else-if="!imageUrl && loading" class="state loading">Loading...</div>
 
-      <SwipeCard v-else class="card" @like="onLike" @dislike="onDislike" @cancel="onCancel">
-        <img :src="imageUrl" alt="Random from Immich" class="photo" draggable="false" />
+      <SwipeCard v-else class="card" :style="cardAspectStyle" @like="onLike" @dislike="onDislike" @cancel="onCancel">
+        <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
       </SwipeCard>
     </div>
 
@@ -34,11 +34,23 @@ const currentId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+const natural = ref<{ w: number; h: number } | null>(null)
+const cardAspectStyle = computed(() => {
+  const n = natural.value
+  if (n && n.w > 0 && n.h > 0) {
+    return { aspectRatio: `${n.w} / ${n.h}` }
+  }
+  // Fallback until the image loads
+  return { aspectRatio: '3 / 4' }
+})
+
 const imageUrl = computed(() => (currentId.value ? `/api/image?id=${encodeURIComponent(currentId.value)}` : ''))
 
 async function nextRandom() {
   loading.value = true
   error.value = null
+  // Reset aspect while fetching next image so the card doesn't keep previous ratio
+  natural.value = null
   try {
     const res = await $fetch<{ id: string }>(`/api/random`)
     currentId.value = res.id
@@ -47,6 +59,13 @@ async function nextRandom() {
     currentId.value = null
   } finally {
     loading.value = false
+  }
+}
+
+function onImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img && img.naturalWidth && img.naturalHeight) {
+    natural.value = { w: img.naturalWidth, h: img.naturalHeight }
   }
 }
 
@@ -84,16 +103,16 @@ onMounted(() => {
 
 <style scoped>
 .page {
-  min-height: 100dvh;
+  height: 100dvh; /* lock viewport height */
+  overflow: hidden; /* prevent page scroll */
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 12px;
-  padding: 16px;
+  grid-template-rows: 56px 1fr 72px; /* fixed header/footer heights */
 }
 .header {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 0 16px; /* internal spacing so it doesn't affect layout height */
 }
 .header h1 {
   font-size: 20px;
@@ -113,10 +132,16 @@ onMounted(() => {
   position: relative;
   display: grid;
   place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* ensure content stays within */
+  padding: 8px 16px; /* breathing room without causing page scroll */
+  box-sizing: border-box;
 }
 .card {
   width: min(92vw, 520px);
-  aspect-ratio: 3/4;
+  max-width: 100%;
+  max-height: 100%;
   background: #111;
   border-radius: 16px;
   overflow: hidden;
@@ -125,14 +150,17 @@ onMounted(() => {
 .photo {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* preserve original aspect ratio */
   user-select: none;
 }
 
 .controls {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 16px;
+  padding: 8px 16px; /* internal spacing */
+  box-sizing: border-box;
 }
 .btn {
   padding: 10px 18px;
@@ -148,4 +176,17 @@ onMounted(() => {
   color: #777;
 }
 .state.error button { margin-top: 8px; }
+
+/* Landscape optimizations */
+@media (orientation: landscape) {
+  /* Keep fixed tracks; just tweak card sizing and control spacing */
+  .card {
+    width: min(70vw, 85vh);
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .controls {
+    gap: 24px;
+  }
+}
 </style>
